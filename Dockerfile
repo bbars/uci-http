@@ -9,9 +9,9 @@ RUN go mod download
 
 COPY . .
 
-RUN go build -o ./stockfish-http
+RUN go build -o ./uci-http
 
 EXPOSE 80
 
-ENTRYPOINT ["/app/stockfish-http", "--listen", ":80", "--stockfishBin", "/app/stockfish/stockfish_15_linux_x64"]
-CMD ["--defaultDepth", "20", "--defaultTime", "60000", "--allowOrigin", "*"]
+ENTRYPOINT ["/app/uci-http", "--listen", ":80", "--engineBin", "/app/stockfish/stockfish_15_linux_x64"]
+CMD ["--maxTime", "60000000000", "--allowOrigin", "*"]

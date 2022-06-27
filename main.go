@@ -4,21 +4,22 @@ import (
 	"flag"
 	"log"
 	"net/http"
-	"stockfish-http/engine"
+	"time"
 )
 
-func fatal(err error) {
-	if err != nil {
-		log.Fatal(err)
+func corsMiddleware(w http.ResponseWriter, r *http.Request, allowOrigin string, next http.HandlerFunc) {
+	w.Header().Set("Access-Control-Allow-Origin", allowOrigin)
+	if r.Method == http.MethodOptions {
+		return
 	}
+	next(w, r)
 }
 
 func main() {
 	listenPtr := flag.String("listen", ":80", "HTTP listen [host]:port")
-	stockfishBinPtr := flag.String("stockfishBin", "./stockfish/stockfish_15_linux_x64", "Stockfish binary")
+	engineBinPtr := flag.String("engineBin", "./stockfish/stockfish_15_linux_x64", "UCI engine binary path")
 	allowOriginPtr := flag.String("allowOrigin", "*", "Value for HTTP header Access-Control-Allow-Origin")
-	defaultDepthPtr := flag.Int("defaultDepth", 0, "Default depth limit")
-	defaultTimePtr := flag.Int("defaultTime", 0, "Default time limit (ms)")
+	maxTimePtr := flag.Int("maxTime", 0, "Max time limit (ns)")
 	helpPtr := flag.Bool("help", false, "Show usage info")
 	
 	flag.Parse()
@@ -28,21 +29,14 @@ func main() {
 	}
 	
 	log.Println("listen", *listenPtr)
-	log.Println("stockfishBin", *stockfishBinPtr)
+	log.Println("engineBin", *engineBinPtr)
 	log.Println("allowOrigin", *allowOriginPtr)
-	log.Println("defaultDepth", *defaultDepthPtr)
-	log.Println("defaultTime", *defaultTimePtr)
+	log.Println("maxTime", *maxTimePtr)
 	
-	stockfishFindmoveHandler := &StockfishFindmoveHandler{
-		stockfishBin: *stockfishBinPtr,
-		defaultReq: &engine.FindMoveReq{
-			Depth: *defaultDepthPtr,
-			Time: *defaultTimePtr,
-		},
-	}
-	http.HandleFunc("/findmove", func (w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", *allowOriginPtr)
-		stockfishFindmoveHandler.ServeHTTP(w, r)
+	uciHttpHandlers := NewUciHttpHandlers(*engineBinPtr, time.Duration(*maxTimePtr))
+	
+	http.HandleFunc("/go", func (w http.ResponseWriter, r *http.Request) {
+		corsMiddleware(w, r, *allowOriginPtr, uciHttpHandlers.HandleGo)
 	})
 	
 	log.Fatal(http.ListenAndServe(*listenPtr, nil))
